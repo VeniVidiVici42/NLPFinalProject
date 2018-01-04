@@ -30,7 +30,7 @@ class Evaluation():
                 missing_MAP += 1
         return sum(scores)/len(scores) if len(scores) > 0 else 0.0
 
-
+    #returns average MRR score
     def MRR(self):
         scores = []
         for item in self.data:
