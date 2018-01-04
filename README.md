@@ -11,3 +11,10 @@ Some metrics on the supervised AskUbuntu dataset (to be updated as hyperparamete
 | BM25 (baseline) | 52.0 | 56.0 | 66.0 | 68.0 | 51.9 | 53.8 | 42.1 | 42.5 |
 | CNN | 55.9 | 55.4 | 68.0 | 68.8 | 54.0 | 55.4 | 45.7 | 43.4 |
 | LSTM | 57.0 | 56.4 | 69.3 | 69.2 | 56.0 | 54.3 | 44.4 | 42.7 |
+
+Some metrics on the unsupervised Android dataset (to be updated as hyperparameter grid search continues):
+
+| Method | AUC(0.05) |
+| Tf-idf (dev) | 0.707 |
+| Tf-idf (test) | 0.739 |
+| Direct transfer | 0.580 |
