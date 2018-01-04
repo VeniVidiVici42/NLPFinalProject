@@ -2,7 +2,7 @@
 
 Final project for 6.806/6.864 at MIT on question similarity. This project first implements the approach in the [following paper](https://arxiv.org/pdf/1512.05726.pdf), which substantially outperforms BM25 on the supervised AskUbuntu dataset, then works on the unsupervised Android dataset using both direct transfer and [adversarial domain adaptation](https://arxiv.org/pdf/1409.7495.pdf)
 
-To utilize this project simply run main/main.py as-is. There is hopefully obvious flexibility in model selection and parameter choices, though some hyperparameters (e.g. learning rate) are relatively hard to access. TODO: add command line arguments for common selections.
+To utilize this project simply run whichever part of bin/main.py is desirable. There is hopefully obvious flexibility in model selection and parameter choices, though some hyperparameters (e.g. learning rate) are relatively hard to access. TODO: add command line arguments for common selections.
 
 Some metrics on the supervised AskUbuntu dataset (to be updated as hyperparameter grid search continues):
 
