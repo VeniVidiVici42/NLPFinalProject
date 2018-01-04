@@ -3,10 +3,12 @@ import torch.nn as nn
 import torch.utils.data
 import numpy as np
 import data_processor as dp
+import time
 from torch.nn.functional import tanh
 from torch.nn.functional import relu
 from torch.autograd import Variable
 from evaluate import Evaluation
+from meter import AUCMeter
 
 class CNN(nn.Module):
 	def __init__(self, output_size, kernel_width, embeddings, dropout):
@@ -87,7 +89,7 @@ def loss(good_tensor, cand_tensor, delta):
 	loss = relu(max_rand_sim - sim_sim + delta)
 	return torch.mean(loss)
 		
-def train_model(train_data, dev_data, model):
+def train_model(train_data, dev_data, model, transfer=False):
 	model.cuda()
 	optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=0.0001)
 	model.train()
@@ -99,19 +101,20 @@ def train_model(train_data, dev_data, model):
 		print("****************************************")
 		print("Epoch", epoch + 1)
 
-		loss = run_epoch(train_data, True, model, optimizer)
+		loss = run_epoch(train_data, True, model, optimizer, transfer)
 		print("Trained in:", time.time() - prev_time)
 		print("Loss:", loss)
 		
-		(MAP, MRR, P1, P5) = run_epoch(dev_data, False, model, optimizer)
-		if MRR > best_mrr:
-			best_mrr = MRR
-			torch.save(model, "model{}".format(epoch))
-		
-		print("MAP:", MAP, "(Benchmark: 52.0 dev, 56.0 test)")
-		print("MRR:", MRR, "(Benchmark: 66.0 dev, 68.0 test)")
-		print("P1:", P1, "(Benchmark: 51.9 dev, 53.8 test)")
-		print("P5:", P5, "(Benchmark: 42.1 dev, 42.5 test)")
+		if transfer:
+			AUC = run_epoch(dev_data, False, model, optimizer, transfer)
+			print("AUC:", AUC, "(Benchmark: 0.6)")
+		else:
+			(MAP, MRR, P1, P5) = run_epoch(dev_data, False, model, optimizer, transfer)
+			print("MAP:", MAP, "(Benchmark: 52.0 dev, 56.0 test)")
+			print("MRR:", MRR, "(Benchmark: 66.0 dev, 68.0 test)")
+			print("P1:", P1, "(Benchmark: 51.9 dev, 53.8 test)")
+			print("P5:", P5, "(Benchmark: 42.1 dev, 42.5 test)")
+		torch.save(model, "model{}".format(epoch))
 		
 		print("Evaluated in:", time.time() - prev_time)
 		prev_time = time.time()
@@ -122,17 +125,19 @@ def train_model(train_data, dev_data, model):
 			
 		prev_loss = loss
 		
-def run_epoch(data, is_training, model, optimizer):
+def run_epoch(data, is_training, model, optimizer, transfer=False):
 	
 	# Make batches
 	data_loader = torch.utils.data.DataLoader(
 		data,
-		batch_size=100,
+		batch_size=10,
 		shuffle=True,
 		num_workers=4,
 		drop_last=False)
 
 	losses = []
+	actual = []
+	expected = []
 
 	if is_training:
 		model.train()
@@ -179,25 +184,42 @@ def run_epoch(data, is_training, model, optimizer):
 			optimizer.step()
 		else:
 			similarity = cosine_sim(good_tensor.expand_as(cand_tensor), cand_tensor, dim=2)
-			similarity = similarity.data.cpu().numpy()
-			labels = batch['labels'].numpy()
+			if transfer:
+				similarity = torch.FloatTensor(similarity.data.cpu().numpy())
+			else:
+				similarity = similarity.data.cpu().numpy()
+			if transfer:
+				labels = batch['labels']
+			else:
+				labels = batch['labels'].numpy()
 			def predict(sim, labels):
 				predictions = []
 				for i in range(sim.shape[0]):
 					sorted_cand = (-sim[i]).argsort()
 					predictions.append(labels[i][sorted_cand])
-				return predictions		
-			l = predict(similarity, labels)
-			losses.extend(l)
+				return predictions
+			if transfer:
+				for sim in similarity:
+					actual.append(sim)
+				expected.extend(labels.view(-1))
+			else:
+				l = predict(similarity, labels)
+				losses.extend(l)
 
 	# # Calculate epoch level scores
 	if is_training:
 		avg_loss = np.mean(losses)
 		return avg_loss
 	else:
-		e = Evaluation(losses)
-		MAP = e.MAP()*100
-		MRR = e.MRR()*100
-		P1 = e.Precision(1)*100
-		P5 = e.Precision(5)*100
-		return (MAP, MRR, P1, P5)
+		if transfer:
+			auc = AUCMeter()
+			auc.reset()
+			auc.add(torch.cat(actual), torch.LongTensor(expected))
+			return auc.value(max_fpr=0.05)
+		else:
+			e = Evaluation(losses)
+			MAP = e.MAP()*100
+			MRR = e.MRR()*100
+			P1 = e.Precision(1)*100
+			P5 = e.Precision(5)*100
+			return (MAP, MRR, P1, P5)

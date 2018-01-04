@@ -4,6 +4,7 @@ import random
 import torch
 import numpy as np
 import constants
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 '''
 Source: https://github.com/taolei87/rcnn/blob/master/code/qa/myio.py
@@ -14,7 +15,10 @@ def read_corpus(path):
 	fopen = gzip.open if path.endswith(".gz") else open
 	with fopen(path) as fin:
 		for line in fin:
-			id, title, body = line.decode("utf-8").split("\t")
+			try:
+				id, title, body = line.decode("utf-8").split("\t")
+			except:
+				id, title, body = line.split("\t")
 			title, body = title.lower(), body.lower()
 			if len(title) == 0:
 				empty_cnt += 1
@@ -71,9 +75,9 @@ def embeddings(path):
 	embeddings = []
 	word_to_idx = {}
 	# Create padding tensor
-	embeddings.append(np.zeros(201)) 
+	embeddings.append(np.zeros(301)) 
 	# Create unknown word tensor
-	unk_embedding = np.zeros(201) 
+	unk_embedding = np.zeros(301) 
 	unk_embedding[-1] = 1 
 	embeddings.append(unk_embedding)
 	# Process remaining embeddings
@@ -83,14 +87,15 @@ def embeddings(path):
 		for line in f:
 			word, vector = line.split()[0], line.split()[1:]
 			vector = [float(x) for x in vector]
-			vector.append(0) 
-			embeddings.append(vector)
-			# Words might be in unicode string format or byte string format. In latter case need to transform to match corpus processing.
-			try:
-				word_to_idx[word.decode('utf-8')] = idx + 2
-			except:
-				word_to_idx[word] = idx + 2
-			idx = idx + 1
+			vector.append(0)
+			if len(embeddings) is 0 or len(vector) == len(embeddings[0]):
+				embeddings.append(vector)
+				# Words might be in unicode string format or byte string format. In latter case need to transform to match corpus processing.
+				try:
+					word_to_idx[word.decode('utf-8')] = idx + 2
+				except:
+					word_to_idx[word] = idx + 2
+				idx = idx + 1
 	return np.array(embeddings), word_to_idx
 
 '''
@@ -197,18 +202,70 @@ def get_dev_data(path, id_to_tensors):
 		candidate_titles_mask = torch.cat([torch.unsqueeze(id_to_tensors[x][1],0) for x in qid])
 		candidate_body = torch.cat([torch.unsqueeze(id_to_tensors[x][2],0) for x in qid])
 		candidate_body_mask = torch.cat([torch.unsqueeze(id_to_tensors[x][3],0) for x in qid])
-		#if len(dev_data) is 0 or candidate_titles.size() == dev_data[0]['candidate_titles'].size():
-		dev_data.append({
-							'pid_title': pid_title,
-							'pid_title_mask': pid_title_mask,
-							'pid_body': pid_body,
-							'pid_body_mask': pid_body_mask,
-							'candidate_titles': candidate_titles,
-							'candidate_titles_mask': candidate_titles_mask,
-							'candidate_body': candidate_body,
-							"candidate_body_mask": candidate_body_mask,
-							'labels': torch.LongTensor(qlabels)
-							})
+		if len(dev_data) is 0 or candidate_titles.size() == dev_data[0]['candidate_titles'].size():
+			dev_data.append({
+								'pid_title': pid_title,
+								'pid_title_mask': pid_title_mask,
+								'pid_body': pid_body,
+								'pid_body_mask': pid_body_mask,
+								'candidate_titles': candidate_titles,
+								'candidate_titles_mask': candidate_titles_mask,
+								'candidate_body': candidate_body,
+								"candidate_body_mask": candidate_body_mask,
+								'labels': torch.LongTensor(qlabels)
+								})
 	
 		
 	return dev_data
+	
+def featurize(path):
+	id_to_tfidf = {}
+	id_to_idx = {}
+	corpus = []
+	
+	idx = 0
+	with open(path) as f:
+		for line in f.readlines():
+			id = line.split('\t')[0]
+			words = ' '.join(line.split('\t')[1:])
+			corpus.append(words)
+			id_to_idx[id] = idx
+			idx = idx + 1
+	
+	vectorizer = TfidfVectorizer()
+	tfidf = vectorizer.fit_transform(corpus).toarray()
+	for id in id_to_idx:
+		id_to_tfidf[id] = torch.FloatTensor(tfidf[id_to_idx[id]])
+	return id_to_tfidf
+	
+def read_annotations_android(sim_path, rand_path):
+	ids = []
+	id_to_cand = {}
+	id_to_labels = {}
+	
+	with open(sim_path) as f:
+		for line in f.readlines():
+			(id, cand) = line.split()
+			if id not in ids:
+				ids.append(id)
+				id_to_cand[id] = [cand]
+				id_to_labels[id] = [1]
+			else:
+				if cand not in id_to_cand[id]:
+					id_to_cand[id].append(cand)
+					id_to_labels[id].append(1)
+	
+	with open(rand_path) as f:
+		for line in f.readlines():
+			(id, cand) = line.split()
+			if id not in ids:
+				continue
+			else:
+				if cand not in id_to_cand[id]:
+					id_to_cand[id].append(cand)
+					id_to_labels[id].append(0)
+	
+	lst = []
+	for id in ids:
+		lst.append((id, id_to_cand[id], id_to_labels[id]))
+	return lst
