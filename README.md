@@ -15,6 +15,7 @@ Some metrics on the supervised AskUbuntu dataset (to be updated as hyperparamete
 Some metrics on the unsupervised Android dataset (to be updated as hyperparameter grid search continues):
 
 | Method | AUC(0.05) |
+| --- | --- |
 | Tf-idf (dev) | 0.707 |
 | Tf-idf (test) | 0.739 |
 | Direct transfer | 0.580 |
