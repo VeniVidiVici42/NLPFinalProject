@@ -333,11 +333,6 @@ def run_adversarial_epoch(data, is_training, encoder, encoder_optimizer, classif
 			android_tensor = (android_title + android_body)/2
 		
 		if is_training:
-			dropout = nn.Dropout(p=0.2)
-			good_tensor = dropout(good_tensor)
-			cand_tensor = dropout(cand_tensor)
-			android_tensor = dropout(android_tensor)
-			
 			good_domain = classifier(good_tensor.view(sz, -1))
 			android_domain = classifier(android_tensor.view(sz, -1))
 			
