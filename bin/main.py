@@ -35,15 +35,32 @@ import meter
 #####################################################
 # TODO: fix src/data_processor embeddings() so that we don't have to keep changing it between 201 and 301 length
 
+#corpus = data.read_corpus(constants.android_corpus_path)
+#embeddings, map_to_ids = data.embeddings(constants.android_embeddings_path)
+#id_to_tensors = data.map_corpus(corpus, map_to_ids)
+
+#train_corpus = data.read_corpus(constants.corpus_path)
+#train_id_to_tensors = data.map_corpus(train_corpus, map_to_ids)
+#train = data.get_train_data(constants.train_path, train_id_to_tensors)
+#dev = data.get_dev_data(constants.android_dev_path, id_to_tensors)
+
+#model = models.CNN(700, embeddings, 0.2)
+#models.train_model(train, dev, model, transfer=True)
+
+#####################################################
+# Use this for running adversarial domain adaptation
+#####################################################
 
 corpus = data.read_corpus(constants.android_corpus_path)
 embeddings, map_to_ids = data.embeddings(constants.android_embeddings_path)
-id_to_tensors = data.map_corpus(corpus, map_to_ids)
+id_to_tensors = data.map_corpus(corpus, map_to_ids, kernel_width=1)
 
 train_corpus = data.read_corpus(constants.corpus_path)
-train_id_to_tensors = data.map_corpus(train_corpus, map_to_ids)
-train = data.get_train_data(constants.train_path, train_id_to_tensors)
+train_id_to_tensors = data.map_corpus(train_corpus, map_to_ids, kernel_width=1)
+train = data.get_android_data(constants.train_path, train_id_to_tensors, id_to_tensors)
 dev = data.get_dev_data(constants.android_dev_path, id_to_tensors)
 
-model = models.CNN(700, embeddings, 0.2)
-models.train_model(train, dev, model, transfer=True)
+encoder = models.LSTM(200, embeddings, 0.2)
+classifier = models.DomainClassifier(200, 300, 150)
+
+models.train_adversarial_model(train, dev, encoder, classifier)

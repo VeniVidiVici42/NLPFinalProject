@@ -218,6 +218,50 @@ def get_dev_data(path, id_to_tensors):
 		
 	return dev_data
 	
+def get_android_data(path, id_to_tensors, android_id_to_tensors):
+	train_data = []
+	data = read_annotations(path)
+	
+	android_ids = list(android_id_to_tensors.keys())
+	for (pid, qid, qlabels) in data:
+		if pid not in id_to_tensors:
+			continue
+		sim_id = [] # similar questions
+		rand_id = [] # random questions
+		for i in range(len(qid)):
+			if qid[i] not in id_to_tensors:
+				continue
+			if qlabels[i] is 1:
+				sim_id.append(qid[i])
+			else:
+				rand_id.append(qid[i])
+		rand_id = rand_id[:20]
+		for id in sim_id:
+			(pid_title, pid_title_mask, pid_body, pid_body_mask) = id_to_tensors[pid]
+			candidate_titles = torch.cat([torch.unsqueeze(id_to_tensors[x][0],0) for x in [id] + rand_id])
+			candidate_titles_mask = torch.cat([torch.unsqueeze(id_to_tensors[x][1],0) for x in [id] + rand_id])
+			candidate_body = torch.cat([torch.unsqueeze(id_to_tensors[x][2],0) for x in [id] + rand_id])
+			candidate_body_mask = torch.cat([torch.unsqueeze(id_to_tensors[x][3],0) for x in [id] + rand_id])
+				
+			aid = random.choice(android_ids)
+			(android_title, android_title_mask, android_body, android_body_mask) = android_id_to_tensors[aid]
+			
+			train_data.append({
+								'pid_title': pid_title,
+								'pid_title_mask': pid_title_mask,
+								'pid_body': pid_body,
+								'pid_body_mask': pid_body_mask,
+								'candidate_titles': candidate_titles,
+								'candidate_titles_mask': candidate_titles_mask,
+								'candidate_body': candidate_body,
+								'candidate_body_mask': candidate_body_mask,
+								'android_title': android_title,
+								'android_title_mask': android_title_mask,
+								'android_body': android_body,
+								'android_body_mask': android_body_mask
+								})
+	return train_data
+	
 def featurize(path):
 	id_to_tfidf = {}
 	id_to_idx = {}
