@@ -24,23 +24,17 @@ class CNN(nn.Module):
 		self.dropout = nn.Dropout(p = dropout)
 		
 	def forward(self, input):
-		# input is of dim: batch x num_samples (1 or 21) x len (60 or 100)
 		(batch_size, samples, length) = input.size()
-		x = input.view(batch_size * samples, length) # reformat for embedding
+		x = input.view(batch_size * samples, length)
 		x = self.embedding_layer(x)
 		x = x.float()
 		x = self.dropout(x)
-		# x is now of dim batch * num_samples x len x 200
-		x = torch.transpose(x, 1, 2) # swaps len and 200 to make convolution work
+		x = torch.transpose(x, 1, 2) 
 		x = tanh(self.dropout(self.conv(x)))
 		x = x.view(batch_size, samples, self.output_size, length - self.kernel_width + 1)
 		l2 = torch.norm(x, 2, dim=2, keepdim=True).expand_as(x)
 		x = x / l2.clamp(min = 1e-8)
-		# x is now of dim batch * num_samples x output_size x (len - kernel_width + 1)
-		#x = torch.mean(x, dim = 2)
-		#x = torch.squeeze(x, dim = 2)
-		#x = x.view(batch_size, samples, self.output_size)
-		
+	
 		return x
 		
 class LSTM(nn.Module):
@@ -59,20 +53,16 @@ class LSTM(nn.Module):
 		self.dropout = nn.Dropout(p = dropout)
 				
 	def forward(self, input):
-		# input is of dim: batch x num_samples (1 or 21) x len (60 or 100)
 		(batch_size, samples, length) = input.size()
-		x = input.view(batch_size * samples, length) # reformat for embedding
+		x = input.view(batch_size * samples, length)
 		x = self.embedding_layer(x)
 		x = x.float()
 		x = self.dropout(x)
-		# x is now of dim batch * num_samples x len x 200
-		output, hn = self.lstm(x) # hidden and cells are zero
-		# output is of dim batch * num_samples x len x output_size
+		output, hn = self.lstm(x) 
 		x = torch.transpose(output, 1, 2)
 		x = x.contiguous().view(batch_size, samples, self.output_size, length)
 		l2 = torch.norm(x, 2, dim=2, keepdim=True).expand_as(x)
 		x = x / l2.clamp(min = 1e-8)
-		#x = hn[0].contiguous().view(batch_size, samples, self.output_size)
 		return x
 		
 class DomainClassifier(nn.Module):
@@ -219,7 +209,6 @@ def run_epoch(data, is_training, model, optimizer, transfer=False):
 				l = predict(similarity, labels)
 				losses.extend(l)
 
-	# # Calculate epoch level scores
 	if is_training:
 		avg_loss = np.mean(losses)
 		return avg_loss
@@ -380,7 +369,6 @@ def run_adversarial_epoch(data, is_training, encoder, encoder_optimizer, classif
 				actual.append(sim)
 			expected.extend(labels.view(-1))
 
-	# # Calculate epoch level scores
 	if is_training:
 		avg_loss = np.mean(losses)
 		avg_bce_loss = np.mean(bce_losses)
