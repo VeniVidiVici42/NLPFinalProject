@@ -53,14 +53,14 @@ import meter
 
 corpus = data.read_corpus(constants.android_corpus_path)
 embeddings, map_to_ids = data.embeddings(constants.android_embeddings_path)
-id_to_tensors = data.map_corpus(corpus, map_to_ids, kernel_width=1)
+id_to_tensors = data.map_corpus(corpus, map_to_ids)
 
 train_corpus = data.read_corpus(constants.corpus_path)
-train_id_to_tensors = data.map_corpus(train_corpus, map_to_ids, kernel_width=1)
+train_id_to_tensors = data.map_corpus(train_corpus, map_to_ids)
 train = data.get_android_data(constants.train_path, train_id_to_tensors, id_to_tensors)
 dev = data.get_dev_data(constants.android_dev_path, id_to_tensors)
 
-encoder = models.LSTM(200, embeddings, 0.2)
-classifier = models.DomainClassifier(200, 300, 150)
+encoder = models.CNN(500, embeddings, 0.2)
+classifier = models.DomainClassifier(500, 300, 150)
 
 models.train_adversarial_model(train, dev, encoder, classifier)
