@@ -277,8 +277,8 @@ def run_adversarial_epoch(data, is_training, encoder, encoder_optimizer, classif
 		encoder.train()
 		classifier.train()
 	else:
-		encoder.train()
-		classifier.train()
+		encoder.eval()
+		classifier.eval()
 	
 	for batch in data_loader:
 		# Unpack training instances
